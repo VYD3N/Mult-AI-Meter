@@ -3,16 +3,28 @@ import { DEFAULT_SYSTEM_INSTRUCTION } from "../constants";
 import { ChatMessage, MultimeterReading, TroubleshootingPreset, AI_GUIDED_PRESET_ID } from "../types";
 
 let aiClient: GoogleGenAI | null = null;
+const apiKey = import.meta.env.GEMINI_API_KEY;
 
-const getClient = (): GoogleGenAI => {
-  if (!aiClient) {
-    aiClient = new GoogleGenAI({ apiKey: process.env.API_KEY });
+export const isGeminiConfigured = (): boolean => Boolean(apiKey);
+
+const getClient = (): GoogleGenAI | null => {
+  if (!apiKey) {
+    return null;
   }
+
+  if (!aiClient) {
+    aiClient = new GoogleGenAI({ apiKey });
+  }
+
   return aiClient;
 };
 
-export const createChatSession = (): Chat => {
+export const createChatSession = (): Chat | null => {
   const ai = getClient();
+  if (!ai) {
+    return null;
+  }
+
   return ai.chats.create({
     model: 'gemini-2.5-flash',
     config: {
