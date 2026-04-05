@@ -1,0 +1,7 @@
+{
+  "name": "SparkSense",
+  "description": "An intelligent electrical diagnostics assistant that connects to OWON B41T+ Bluetooth multimeters to provide real-time analysis, warnings, and guided troubleshooting.",
+  "requestFramePermissions": [
+    "bluetooth"
+  ]
+}
