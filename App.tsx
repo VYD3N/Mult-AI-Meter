@@ -113,7 +113,6 @@ const App: React.FC = () => {
                 <div>
                   <span className="panel-kicker">Vector Interface</span>
                   <h1 className="panel-title">Electrical Diagnosis Console</h1>
-                  <p className="panel-copy">The current UI is rewired into a cinematic HUD layout inspired by your references while keeping live meter, preset, and AI workflow intact.</p>
                 </div>
                 <div className="status-group controls-mobile">
                   <div className="hud-chip">Preset {effectivePreset.name}</div>
