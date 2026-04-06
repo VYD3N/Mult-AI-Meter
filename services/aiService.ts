@@ -2,7 +2,7 @@ import { DEFAULT_SYSTEM_INSTRUCTION } from "../constants";
 import { AI_GUIDED_PRESET_ID, ChatMessage, MultimeterReading, TroubleshootingPreset } from "../types";
 
 type OpenRouterMessage = {
-  role: "system" | "user" | "assistant";
+  role: "user" | "assistant";
   content: string | Array<{
     type: "text" | "image_url";
     text?: string;
@@ -16,6 +16,11 @@ export interface ChatSession {
 
 const apiKey = import.meta.env.OPENROUTER_API_KEY;
 const model = import.meta.env.OPENROUTER_MODEL || "google/gemma-3-27b-it:free";
+const fallbackModels = [
+  "google/gemma-3-12b-it:free",
+  "google/gemma-3-4b-it:free",
+  "meta-llama/llama-3.2-3b-instruct:free",
+];
 
 export const isAIConfigured = (): boolean => Boolean(apiKey);
 
@@ -81,13 +86,50 @@ export const createChatSession = (): ChatSession | null => {
   }
 
   return {
-    messages: [
-      {
-        role: "system",
-        content: DEFAULT_SYSTEM_INSTRUCTION,
-      },
-    ],
+    messages: [],
   };
+};
+
+const withSystemInstruction = (
+  messages: OpenRouterMessage[],
+): OpenRouterMessage[] => {
+  if (messages.length === 0) {
+    return messages;
+  }
+
+  const [first, ...rest] = messages;
+  if (typeof first.content === "string") {
+    return [
+      {
+        ...first,
+        content: `${DEFAULT_SYSTEM_INSTRUCTION.trim()}\n\n[USER MESSAGE]\n${first.content}`,
+      },
+      ...rest,
+    ];
+  }
+
+  return [
+    {
+      ...first,
+      content: [
+        {
+          type: "text",
+          text: `${DEFAULT_SYSTEM_INSTRUCTION.trim()}\n\n[USER MESSAGE]`,
+        },
+        ...first.content,
+      ],
+    },
+    ...rest,
+  ];
+};
+
+const getErrorMessage = async (response: Response): Promise<string> => {
+  try {
+    const data = await response.json();
+    return data?.error?.metadata?.raw || data?.error?.message || `Request failed with ${response.status}`;
+  } catch {
+    return `Request failed with ${response.status}`;
+  }
 };
 
 export const sendMessageToAI = async (
@@ -116,36 +158,52 @@ export const sendMessageToAI = async (
   });
 
   try {
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "X-OpenRouter-Title": "Mult-AI-Meter",
-        "HTTP-Referer": window.location.origin,
-      },
-      body: JSON.stringify({
-        model,
-        messages: chat.messages,
-      }),
-    });
+    const payloadMessages = withSystemInstruction(chat.messages);
+    const modelsToTry = [model, ...fallbackModels.filter((candidate) => candidate !== model)];
+    let lastError = "";
 
-    if (!response.ok) {
-      throw new Error(`OpenRouter request failed with ${response.status}`);
+    for (const candidate of modelsToTry) {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "X-OpenRouter-Title": "Mult-AI-Meter",
+          "HTTP-Referer": window.location.origin,
+        },
+        body: JSON.stringify({
+          model: candidate,
+          messages: payloadMessages,
+        }),
+      });
+
+      if (!response.ok) {
+        lastError = await getErrorMessage(response);
+        if (response.status === 429 || response.status >= 500) {
+          continue;
+        }
+        throw new Error(lastError);
+      }
+
+      const data = await response.json();
+      const responseText = normalizeAssistantText(data?.choices?.[0]?.message?.content)
+        || "I received the data but couldn't generate a response.";
+
+      chat.messages.push({
+        role: "assistant",
+        content: responseText,
+      });
+
+      return responseText;
     }
 
-    const data = await response.json();
-    const responseText = normalizeAssistantText(data?.choices?.[0]?.message?.content)
-      || "I received the data but couldn't generate a response.";
-
-    chat.messages.push({
-      role: "assistant",
-      content: responseText,
-    });
-
-    return responseText;
+    throw new Error(lastError || "All configured OpenRouter models failed.");
   } catch (error) {
     console.error("OpenRouter API Error:", error);
-    return "Sorry, I encountered an error communicating with the AI service. Please check your connection.";
+    const message = error instanceof Error ? error.message : "Unknown error";
+    if (message.toLowerCase().includes("rate-limited") || message.includes("429")) {
+      return "OpenRouter's free models are currently rate-limited. Please retry in a moment.";
+    }
+    return `Sorry, I encountered an AI service error: ${message}`;
   }
 };
