@@ -1,7 +1,8 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly GEMINI_API_KEY?: string;
+  readonly OPENROUTER_API_KEY?: string;
+  readonly OPENROUTER_MODEL?: string;
 }
 
 interface ImportMeta {

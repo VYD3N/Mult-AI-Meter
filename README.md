@@ -15,6 +15,7 @@ View your app in AI Studio: https://ai.studio/apps/0ac3104e-48c4-484b-8a3e-88588
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Set `OPENROUTER_API_KEY` in `.env.local`
+3. Optional: set `OPENROUTER_MODEL` to override the default model (`google/gemma-3-27b-it:free`)
+4. Run the app:
    `npm run dev`

@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, MultimeterReading } from '../types';
-import { createChatSession, isGeminiConfigured, sendMessageToAI } from '../services/geminiService';
-import { Chat } from '@google/genai';
+import { ChatSession, createChatSession, isAIConfigured, sendMessageToAI } from '../services/aiService';
 
 interface ChatInterfaceProps {
   currentReading: MultimeterReading | null;
@@ -26,20 +25,20 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ currentReading, on
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showContext, setShowContext] = useState(true);
 
-  const chatSessionRef = useRef<Chat | null>(null);
+  const chatSessionRef = useRef<ChatSession | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     chatSessionRef.current = createChatSession();
 
-    if (!isGeminiConfigured()) {
+    if (!isAIConfigured()) {
       setMessages(prev => [
         ...prev,
         {
-          id: 'gemini-config-missing',
+          id: 'ai-config-missing',
           role: 'model',
-          text: 'AI chat is offline until you add `GEMINI_API_KEY` to `.env.local` and restart the dev server.',
+          text: 'AI chat is offline until you add `OPENROUTER_API_KEY` to `.env.local` and restart the dev server.',
           timestamp: Date.now()
         }
       ]);
@@ -70,7 +69,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ currentReading, on
         {
           id: Date.now().toString(),
           role: 'model',
-          text: 'Gemini is not configured yet. Add `GEMINI_API_KEY` to `.env.local`, then restart the app to enable AI responses.',
+          text: 'OpenRouter is not configured yet. Add `OPENROUTER_API_KEY` to `.env.local`, then restart the app to enable AI responses.',
           timestamp: Date.now()
         }
       ]);
@@ -124,7 +123,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ currentReading, on
     }
   };
 
-  const chatStatus = isGeminiConfigured() ? 'Gemini uplink armed' : 'Gemini offline';
+  const chatStatus = isAIConfigured() ? 'OpenRouter uplink armed' : 'OpenRouter offline';
 
   return (
     <div className="chat-shell">
@@ -158,7 +157,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ currentReading, on
 
       <div className="status-bar">
         <div className="status-group">
-          <div className={`status-chip ${isGeminiConfigured() ? '' : 'warning'}`}>{chatStatus}</div>
+          <div className={`status-chip ${isAIConfigured() ? '' : 'warning'}`}>{chatStatus}</div>
           <div className="hud-chip">{currentReading ? `${currentReading.mode} ${currentReading.value} ${currentReading.unit}` : 'No active reading'}</div>
         </div>
       </div>
